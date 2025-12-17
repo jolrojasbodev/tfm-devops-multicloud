@@ -1,0 +1,34 @@
+# Generales
+.env
+*.log
+*.tmp
+
+# Node / Python
+node_modules/
+__pycache__/
+.venv/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+
+# Kubernetes / Helm
+charts/*.tgz
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Secrets
+*.pem
+*.key
+
+# OS/IDE
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

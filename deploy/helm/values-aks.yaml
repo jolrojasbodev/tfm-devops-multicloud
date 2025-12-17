@@ -1,0 +1,13 @@
+ingress:
+  enabled: true
+  className: "nginx"   # TODO: o "webapprouting.kubernetes.azure.com" si usas Web App Routing
+  annotations: {}
+  hosts:
+    - host: "staging-aks.tu-dominio.com"   # TODO
+      paths:
+        - path: /
+          pathType: Prefix
+
+networkPolicy:
+  enabled: true
+  allowIngressFromSameNamespace: true

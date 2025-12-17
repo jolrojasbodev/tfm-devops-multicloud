@@ -1,0 +1,13 @@
+ingress:
+  enabled: true
+  className: "nginx"   # TODO: o "alb" si usas AWS Load Balancer Controller
+  annotations: {}
+  hosts:
+    - host: "staging-eks.tu-dominio.com"   # TODO
+      paths:
+        - path: /
+          pathType: Prefix
+
+networkPolicy:
+  enabled: true
+  allowIngressFromSameNamespace: true

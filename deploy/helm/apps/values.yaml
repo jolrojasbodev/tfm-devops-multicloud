@@ -1,0 +1,77 @@
+replicaCount: 2
+
+image:
+  repository: "REPO_PLACEHOLDER"
+  digest: "DIGEST_PLACEHOLDER"   # sha256:...
+  pullPolicy: IfNotPresent
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  name: ""
+
+podAnnotations: {}
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 3000   # TODO: cambia si tu app escucha en otro puerto
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: ""
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources:
+  limits:
+    cpu: "500m"
+    memory: "512Mi"
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+
+podSecurityContext:
+  fsGroup: 10001
+
+livenessProbe:
+  enabled: true
+  path: /health
+  port: 3000
+  initialDelaySeconds: 15
+  periodSeconds: 10
+
+readinessProbe:
+  enabled: true
+  path: /health
+  port: 3000
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+env:
+  - name: NODE_ENV
+    value: "production"
+
+# NetworkPolicy (opcional pero aporta valor en TFM)
+networkPolicy:
+  enabled: false
+  allowIngressFromSameNamespace: true

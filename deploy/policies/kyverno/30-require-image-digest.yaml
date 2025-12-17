@@ -1,0 +1,26 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-image-digest
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: require-digest-for-images
+      match:
+        resources:
+          kinds:
+            - Pod
+          namespaceSelector:
+            matchLabels:
+              policy: restricted
+      validate:
+        message: "Las imágenes deben referenciarse por digest (repo@sha256:...). No se permiten despliegues por tag."
+        foreach:
+          - list: "request.object.spec.containers"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ element.image }}"
+                    operator: NotMatches
+                    value: ".*@sha256:.*"

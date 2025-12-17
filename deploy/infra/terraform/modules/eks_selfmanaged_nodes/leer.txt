@@ -1,0 +1,9 @@
+Este módulo asume:
+
+El clúster EKS ya existe (creado con el módulo eks que definimos antes).
+Tienes una AMI generada con Packer adecuada para actuar como nodo de EKS (es decir, basada en una imagen compatible con EKS y con el script de bootstrap disponible, por ejemplo derivada de la AMI EKS optimizada de AWS).
+
+Le pasas a este módulo:
+cluster_name
+subnet_ids para los nodos
+ami_id generado por Packer

@@ -1,0 +1,42 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-latest-and-empty-tag
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: block-latest-tag
+      match:
+        resources:
+          kinds:
+            - Pod
+          namespaceSelector:
+            matchLabels:
+              policy: restricted
+      validate:
+        message: "Uso de tag ':latest' no permitido. Use digest (repo@sha256:...) o tag versionado."
+        pattern:
+          spec:
+            containers:
+              - image: "!*:latest"
+
+    - name: require-explicit-tag-or-digest
+      match:
+        resources:
+          kinds:
+            - Pod
+          namespaceSelector:
+            matchLabels:
+              policy: restricted
+      validate:
+        message: "No se permiten imágenes sin tag explícito (repo:tag) o sin digest (repo@sha256:...)."
+        anyPattern:
+          # Caso 1: imagen con tag explícito
+          - spec:
+              containers:
+                - image: "*:*"
+          # Caso 2: imagen con digest
+          - spec:
+              containers:
+                - image: "*@sha256:*"

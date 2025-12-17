@@ -1,0 +1,11 @@
+---
+- hosts: all
+  become: yes
+  roles:
+    - base
+
+- hosts: k8s
+  become: yes
+  roles:
+    - k8s-node
+    - monitoring

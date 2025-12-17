@@ -1,0 +1,32 @@
+---
+- name: Habilitar módulos del kernel para Kubernetes
+  modprobe:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - br_netfilter
+    - overlay
+
+- name: Configurar parámetros sysctl
+  sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    sysctl_set: yes
+    state: present
+  loop:
+    - { key: 'net.bridge.bridge-nf-call-iptables', value: 1 }
+    - { key: 'net.ipv4.ip_forward', value: 1 }
+
+- name: Instalar containerd
+  apt:
+    name: containerd
+    state: present
+
+- name: Crear config de containerd
+  command: containerd config default | tee /etc/containerd/config.toml
+
+- name: Reiniciar containerd
+  service:
+    name: containerd
+    state: restarted
+    enabled: yes
