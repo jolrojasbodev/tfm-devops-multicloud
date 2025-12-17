@@ -63,34 +63,34 @@ Estas fases se abordarán en iteraciones posteriores del proyecto.
 
 El repositorio está organizado por capas, siguiendo un enfoque académico y profesional:
 
-├── cicd/ # Pipeline CI/CD (Jenkins)
-│ └── Jenkinsfile
+```
+.
+├── cicd/                      # Pipeline CI/CD (Jenkins)
+│   └── Jenkinsfile
 │
-├── config/ # Automatización de configuración
-│ └── ansible/
-│ ├── inventories/ # Inventarios AWS, Azure y local
-│ ├── playbooks/ # Playbooks de configuración
-│ └── roles/ # Roles Ansible reutilizables
+├── config/                    # Automatización de configuración
+│   └── ansible/
+│       ├── inventories/       # Inventarios AWS, Azure y local
+│       ├── playbooks/         # Playbooks de configuración
+│       └── roles/             # Roles Ansible reutilizables
 │
-├── infra/ # Infraestructura como Código
-│ ├── packer/ # Construcción de imágenes base
-│ └── terraform/ # Provisión de infraestructura AWS / Azure
+├── infra/                     # Infraestructura como Código
+│   ├── packer/                # Construcción de imágenes base
+│   └── terraform/             # Provisión AWS / Azure
 │
-├── deploy/ # Despliegue en Kubernetes
-│ ├── helm/ # Charts Helm y values por proveedor
-│ └── policies/ # Seguridad y control
-│ ├── kyverno/
-│ └── rbac/
+├── deploy/                    # Despliegue en Kubernetes
+│   ├── helm/                  # Charts Helm y values por proveedor
+│   └── policies/              # Seguridad y control
+│       ├── kyverno/            # Políticas de seguridad como código
+│       └── rbac/               # Control de accesos por entorno
 │
-├── docs/ # Documentación técnica (en desarrollo)
-├── annexes/ # Anexos académicos y trazabilidad (en desarrollo)
+├── docs/                      # Documentación técnica (en desarrollo)
+├── annexes/                   # Anexos académicos y trazabilidad
 │
 ├── README.md
 ├── LICENSE
 └── .gitignore
-
-
----
+```
 
 ## Infraestructura como Código
 
