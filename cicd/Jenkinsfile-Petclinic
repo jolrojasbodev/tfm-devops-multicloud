@@ -1,13 +1,9 @@
 pipeline {
     agent {
         kubernetes {
-            // FIX v6: Unificamos herramientas en 'deployer' para evitar errores de conexión (exit code -2)
             yaml '''
 apiVersion: v1
 kind: Pod
-metadata:
-  labels:
-    app: jenkins-agent-builder
 spec:
   containers:
   - name: docker
@@ -19,7 +15,6 @@ spec:
     volumeMounts:
     - name: docker-socket
       mountPath: /var/run/docker.sock
-  # Usamos una imagen combinada que trae Helm y Kubectl y es más estable para Jenkins
   - name: deployer
     image: dtzar/helm-kubectl:3.13
     command: ['cat']
@@ -34,32 +29,33 @@ spec:
 
     environment {
         DOCKER_REGISTRY = "jolrojasbodev" 
-        IMAGE_NAME = "spring-petclinic"
-        APP_NAME = "petclinic-tfm"
-        NAMESPACE = "default" 
+        IMAGE_NAME      = "spring-petclinic"
+        APP_NAME        = "petclinic-tfm"
+        NAMESPACE       = "default" 
     }
 
     stages {
-        stage('Checkout') {
+        stage('Source Code Checkout') {
             steps {
                 checkout scm
-                script {
-                    echo "🔧 Iniciando Pipeline TFM (Modo Full Automático) v7"
-                }
             }
         }
         
-        stage('Docker Build & Push') {
+        stage('Docker Image Build & Push') {
             steps {
                 container('docker') {
                     dir('local-deploy/petclinic') {
                         script {
-                            echo "🐳 Construyendo imagen..."
+                            // Autenticación segura en el registro de contenedores
                             withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', passwordVariable: 'DOCKER_PASS', usernameVariable: 'DOCKER_USER')]) {
                                 sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
                             }
+                            
+                            // Construcción y publicación de la imagen
                             sh "docker build -t ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest ."
                             sh "docker push ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest"
+                            
+                            // Obtención del digest SHA256 para garantizar inmutabilidad en el despliegue
                             env.IMAGE_DIGEST = sh(script: "docker inspect --format='{{index .RepoDigests 0}}' ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest | cut -d'@' -f2", returnStdout: true).trim()
                         }
                     }
@@ -67,17 +63,14 @@ spec:
             }
         }
 
-        stage('Deploy Infra & App') {
+        stage('Infrastructure & Application Deployment') {
             steps {
-                // Usamos el contenedor unificado 'deployer' para todo
                 container('deployer') {
                     script {
-                        echo "🏗️ Asegurando infraestructura base (MySQL + Secretos)..."
-                        // Paso 1: Aplicar infraestructura de base de datos
+                        // Sincronización de componentes de infraestructura (Base de Datos y Secretos)
                         sh "kubectl apply -f local-deploy/infra/mysql-local-setup.yaml"
                         
-                        echo "🚀 Desplegando Aplicación en Kubernetes..."
-                        // Paso 2: Desplegar aplicación con Helm
+                        // Despliegue de aplicación mediante Helm Chart
                         sh """
                         helm upgrade --install ${APP_NAME} ./deploy/apps/helm/apps \
                           --namespace ${NAMESPACE} \
@@ -87,8 +80,7 @@ spec:
                           --set autoscaling.enabled=false
                         """
                         
-                        echo "🌐 Exponiendo servicio en puerto fijo 30080..."
-                        // Paso 3: Aplicar servicio NodePort fijo (Parche de Infra)
+                        // Aplicación de configuración de red externa (Puerto Fijo)
                         sh "kubectl apply -f local-deploy/infra/petclinic-nodeport.yaml"
                     }
                 }

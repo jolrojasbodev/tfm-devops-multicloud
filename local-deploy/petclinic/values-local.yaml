@@ -1,19 +1,17 @@
-# values-local.yaml - Adaptación de Spring PetClinic para el Chart Genérico
+# Parámetros de configuración para el despliegue de Spring PetClinic
 
-# 1. IMAGEN
+# Definición de la imagen del contenedor
 image:
   repository: "jolrojasbodev/spring-petclinic"
   pullPolicy: IfNotPresent
 
-# 2. RED Y PUERTOS (CORREGIDO: Volvemos a ClusterIP)
-# Dejamos que Helm cree un servicio interno. 
-# El acceso externo lo maneja nuestro archivo 'petclinic-nodeport.yaml' en el puerto 30080.
+# Configuración del servicio interno (ClusterIP)
 service:
-  type: ClusterIP   # <--- CAMBIO: Volvemos a interno para eliminar el puerto aleatorio extra
+  type: ClusterIP
   port: 8080
   targetPort: 8080
 
-# 3. VARIABLES DE ENTORNO
+# Variables de entorno para la integración con la persistencia
 env:
   - name: SPRING_PROFILES_ACTIVE
     value: "mysql"
@@ -30,31 +28,31 @@ env:
         name: db-credentials
         key: password
 
-# 4. SONDAS DE VIDA
+# Definición de Probes de salud (Readiness y Liveness)
 readinessProbe:
   enabled: true
   path: /actuator/health/readiness
   port: 8080
-  initialDelaySeconds: 20
+  initialDelaySeconds: 25
   periodSeconds: 10
 
 livenessProbe:
   enabled: true
   path: /actuator/health/liveness
   port: 8080
-  initialDelaySeconds: 40
+  initialDelaySeconds: 45
   periodSeconds: 15
 
-# 5. RECURSOS
+# Gestión de recursos de cómputo
 resources:
   requests:
-    cpu: 200m
+    cpu: 250m
     memory: 512Mi
   limits:
     cpu: 1000m
     memory: 1024Mi
 
-# 6. INGRESS
+# Configuración del Ingress Controller
 ingress:
   enabled: true
   className: traefik

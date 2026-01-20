@@ -1,4 +1,6 @@
-# 1. SECRETOS (La cura para CreateContainerConfigError)
+# Configuración de persistencia y secretos para el entorno local
+
+# Gestión de credenciales mediante Opaque Secrets
 apiVersion: v1
 kind: Secret
 metadata:
@@ -6,12 +8,11 @@ metadata:
   namespace: default
 type: Opaque
 stringData:
-  # Estas son las credenciales por defecto de Spring PetClinic
   username: petclinic
   password: petclinic
 
 ---
-# 2. SERVICIO MYSQL (Para que la app lo encuentre como 'mysql-db')
+# Servicio para descubrimiento de red interna (MySQL DNS)
 apiVersion: v1
 kind: Service
 metadata:
@@ -20,12 +21,13 @@ metadata:
 spec:
   ports:
   - port: 3306
+    targetPort: 3306
   selector:
     app: mysql
-  clusterIP: None # Headless service (opcional, pero buena práctica para DBs)
+  clusterIP: None
 
 ---
-# 3. DESPLIEGUE MYSQL
+# Despliegue de instancia de base de datos MySQL 5.7
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -44,7 +46,7 @@ spec:
     spec:
       containers:
       - name: mysql
-        image: mysql:5.7 # Usamos 5.7 por compatibilidad clásica con PetClinic
+        image: mysql:5.7
         env:
         - name: MYSQL_ROOT_PASSWORD
           value: root
@@ -62,5 +64,4 @@ spec:
           mountPath: /var/lib/mysql
       volumes:
       - name: mysql-data
-        emptyDir: {} # En local usamos disco efímero (se borra al reiniciar VM). 
-                     # Para persistencia real usaríamos un PVC.
+        emptyDir: {}
