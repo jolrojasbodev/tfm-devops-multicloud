@@ -44,7 +44,7 @@ spec:
             steps {
                 checkout scm
                 script {
-                    echo "🔧 Iniciando Pipeline TFM (Modo Multi-Stage Docker) v2"
+                    echo "🔧 Iniciando Pipeline TFM (Modo Multi-Stage Docker) v3"
                 }
             }
         }
@@ -56,9 +56,9 @@ spec:
                         script {
                             echo "🐳 Construyendo imagen (Compilación incluida en Dockerfile)..."
                             
-                            // CORRECCIÓN DE SEGURIDAD: --password-stdin (v2 fix)
+                            // CORRECCIÓN V3: Comillas dobles estrictas "$VAR" para evitar que espacios o * rompan la password
                             withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', passwordVariable: 'DOCKER_PASS', usernameVariable: 'DOCKER_USER')]) {
-                                sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                                sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
                             }
                             
                             sh "docker build -t ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest ."
