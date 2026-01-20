@@ -1,27 +1,23 @@
 # values-local.yaml - Adaptación de Spring PetClinic para el Chart Genérico
 
 # 1. IMAGEN
-# Definimos el repositorio base. El 'digest' o 'tag' se inyectará desde Jenkins.
 image:
-  repository: "tu_usuario_dockerhub/spring-petclinic"
+  repository: "jolrojasbodev/spring-petclinic"
   pullPolicy: IfNotPresent
 
-# 2. RED Y PUERTOS
-# Spring Boot escucha en 8080 por defecto (no 3000 como venía en el chart)
+# 2. RED Y PUERTOS (MODIFICADO PARA ACCESO AUTOMÁTICO)
 service:
-  type: ClusterIP
+  type: NodePort      # <--- CAMBIO CLAVE: Permite acceso externo directo
   port: 8080
   targetPort: 8080
+  nodePort: 30080     # <--- PUERTO FIJO: Accederás por http://IP-VM:30080
 
-# 3. VARIABLES DE ENTORNO (La clave de la migración)
-# Aquí definimos que queremos usar MySQL, tal como lo hacías en tu POC
+# 3. VARIABLES DE ENTORNO
 env:
   - name: SPRING_PROFILES_ACTIVE
     value: "mysql"
-  # URL de conexión al servicio MySQL que desplegaremos por separado
   - name: SPRING_DATASOURCE_URL
     value: "jdbc:mysql://mysql-db:3306/petclinic"
-  # Las credenciales deberían venir de Secretos, pero para local/TFM las inyectamos así o via SecretKeyRef si preferimos
   - name: SPRING_DATASOURCE_USERNAME
     valueFrom:
       secretKeyRef:
@@ -33,8 +29,7 @@ env:
         name: db-credentials
         key: password
 
-# 4. SONDAS DE VIDA (Health Checks)
-# Adaptamos las rutas estándar de Spring Boot Actuator
+# 4. SONDAS DE VIDA
 readinessProbe:
   enabled: true
   path: /actuator/health/readiness
@@ -46,11 +41,10 @@ livenessProbe:
   enabled: true
   path: /actuator/health/liveness
   port: 8080
-  initialDelaySeconds: 40 # Java tarda en arrancar
+  initialDelaySeconds: 40
   periodSeconds: 15
 
 # 5. RECURSOS
-# Java consume más memoria que Node.js. Aumentamos los límites.
 resources:
   requests:
     cpu: 200m
@@ -59,10 +53,10 @@ resources:
     cpu: 1000m
     memory: 1024Mi
 
-# 6. INGRESS (Opcional para local)
+# 6. INGRESS
 ingress:
   enabled: true
-  className: traefik # K3s usa Traefik por defecto
+  className: traefik
   hosts:
     - host: petclinic.local
       paths:

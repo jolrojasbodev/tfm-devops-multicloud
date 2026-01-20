@@ -1,7 +1,7 @@
 pipeline {
     agent {
         kubernetes {
-            // Usamos un Pod con 2 contenedores: Docker (para empaquetar) y Helm (para desplegar)
+            // AÑADIDO: Contenedor 'kubectl' para aplicar infraestructura previa
             yaml '''
 apiVersion: v1
 kind: Pod
@@ -15,12 +15,16 @@ spec:
     command: ['cat']
     tty: true
     securityContext:
-      privileged: true # Necesario para DinD o montar sockets
+      privileged: true 
     volumeMounts:
     - name: docker-socket
       mountPath: /var/run/docker.sock
   - name: helm
     image: alpine/helm:3.12.3
+    command: ['cat']
+    tty: true
+  - name: kubectl
+    image: bitnami/kubectl:latest
     command: ['cat']
     tty: true
   volumes:
@@ -32,7 +36,6 @@ spec:
     }
 
     environment {
-        // ACTUALIZADO CON TU USUARIO
         DOCKER_REGISTRY = "jolrojasbodev" 
         IMAGE_NAME = "spring-petclinic"
         APP_NAME = "petclinic-tfm"
@@ -44,7 +47,7 @@ spec:
             steps {
                 checkout scm
                 script {
-                    echo "🔧 Iniciando Pipeline TFM (Modo Multi-Stage Docker) v4"
+                    echo "🔧 Iniciando Pipeline TFM (Modo Full Automático) v5"
                 }
             }
         }
@@ -54,31 +57,34 @@ spec:
                 container('docker') {
                     dir('local-deploy/petclinic') {
                         script {
-                            echo "🐳 Construyendo imagen (Compilación incluida en Dockerfile)..."
-                            
-                            // CORRECCIÓN V3: Comillas dobles estrictas "$VAR" para evitar que espacios o * rompan la password
+                            echo "🐳 Construyendo imagen..."
                             withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', passwordVariable: 'DOCKER_PASS', usernameVariable: 'DOCKER_USER')]) {
                                 sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
                             }
-                            
                             sh "docker build -t ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest ."
                             sh "docker push ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest"
-                            
-                            // Captura del Digest
                             env.IMAGE_DIGEST = sh(script: "docker inspect --format='{{index .RepoDigests 0}}' ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest | cut -d'@' -f2", returnStdout: true).trim()
-                            echo "🔒 Digest capturado: ${env.IMAGE_DIGEST}"
                         }
                     }
                 }
             }
         }
 
-        stage('Deploy Helm') {
+        stage('Deploy Infra & App') {
             steps {
+                // PASO 1: Infraestructura (Base de Datos)
+                container('kubectl') {
+                    script {
+                        echo "🏗️ Asegurando infraestructura base (MySQL + Secretos)..."
+                        // Aplica el archivo de MySQL antes de desplegar la app
+                        sh "kubectl apply -f local-deploy/infra/mysql-local-setup.yaml"
+                    }
+                }
+
+                // PASO 2: Aplicación (Helm)
                 container('helm') {
                     script {
-                        echo "🚀 Desplegando en Kubernetes..."
-                        // CORRECCIÓN V4: Agregamos --set autoscaling.enabled=false para evitar error de nil pointer en el Chart
+                        echo "🚀 Desplegando Aplicación en Kubernetes..."
                         sh """
                         helm upgrade --install ${APP_NAME} ./deploy/apps/helm/apps \
                           --namespace ${NAMESPACE} \
