@@ -44,7 +44,7 @@ spec:
             steps {
                 checkout scm
                 script {
-                    echo "🔧 Iniciando Pipeline TFM (Modo Multi-Stage Docker) v3"
+                    echo "🔧 Iniciando Pipeline TFM (Modo Multi-Stage Docker) v4"
                 }
             }
         }
@@ -78,12 +78,14 @@ spec:
                 container('helm') {
                     script {
                         echo "🚀 Desplegando en Kubernetes..."
+                        // CORRECCIÓN V4: Agregamos --set autoscaling.enabled=false para evitar error de nil pointer en el Chart
                         sh """
                         helm upgrade --install ${APP_NAME} ./deploy/apps/helm/apps \
                           --namespace ${NAMESPACE} \
                           --values ./local-deploy/petclinic/values-local.yaml \
                           --set image.digest=${env.IMAGE_DIGEST} \
-                          --set image.repository=${DOCKER_REGISTRY}/${IMAGE_NAME}
+                          --set image.repository=${DOCKER_REGISTRY}/${IMAGE_NAME} \
+                          --set autoscaling.enabled=false
                         """
                     }
                 }
