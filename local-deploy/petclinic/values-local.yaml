@@ -5,12 +5,13 @@ image:
   repository: "jolrojasbodev/spring-petclinic"
   pullPolicy: IfNotPresent
 
-# 2. RED Y PUERTOS (MODIFICADO PARA ACCESO AUTOMÁTICO)
+# 2. RED Y PUERTOS (CORREGIDO: Volvemos a ClusterIP)
+# Dejamos que Helm cree un servicio interno. 
+# El acceso externo lo maneja nuestro archivo 'petclinic-nodeport.yaml' en el puerto 30080.
 service:
-  type: NodePort      # <--- CAMBIO CLAVE: Permite acceso externo directo
+  type: ClusterIP   # <--- CAMBIO: Volvemos a interno para eliminar el puerto aleatorio extra
   port: 8080
   targetPort: 8080
-  nodePort: 30080     # <--- PUERTO FIJO: Accederás por http://IP-VM:30080
 
 # 3. VARIABLES DE ENTORNO
 env:
