@@ -28,25 +28,25 @@ env:
         name: db-credentials
         key: password
 
-# Definición de Probes de salud (Readiness y Liveness)
+# Definición de Probes de salud (Configuración optimizada para arranque de Spring Boot + JPA)
 readinessProbe:
   enabled: true
   path: /actuator/health/readiness
   port: 8080
-  initialDelaySeconds: 25
+  initialDelaySeconds: 45 
   periodSeconds: 10
 
 livenessProbe:
   enabled: true
   path: /actuator/health/liveness
   port: 8080
-  initialDelaySeconds: 45
+  initialDelaySeconds: 80  
   periodSeconds: 15
 
 # Gestión de recursos de cómputo
 resources:
   requests:
-    cpu: 250m
+    cpu: 200m
     memory: 512Mi
   limits:
     cpu: 1000m
