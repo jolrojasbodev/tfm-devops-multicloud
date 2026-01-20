@@ -1,0 +1,15 @@
+  apiVersion: v1
+kind: Service
+metadata:
+  name: petclinic-fijo     # Nombre diferente para no chocar con Helm
+  namespace: default
+spec:
+  type: NodePort
+  selector:
+    # Este selector debe coincidir con las etiquetas que Helm pone a tus pods.
+    # Usualmente es el nombre del release.
+    app.kubernetes.io/instance: petclinic-tfm
+  ports:
+  - port: 8080
+    targetPort: 8080
+    nodePort: 30080       
