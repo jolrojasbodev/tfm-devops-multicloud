@@ -1,0 +1,97 @@
+pipeline {
+    agent {
+        kubernetes {
+            // Simplificamos el Pod: Ya no necesitamos el contenedor de Maven
+            yaml '''
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: jenkins-agent-builder
+spec:
+  containers:
+  - name: docker
+    image: docker:dind
+    command: ['cat']
+    tty: true
+    securityContext:
+      privileged: true # Necesario para DinD
+    volumeMounts:
+    - name: docker-socket
+      mountPath: /var/run/docker.sock
+  - name: helm
+    image: alpine/helm:3.12.3
+    command: ['cat']
+    tty: true
+  volumes:
+  - name: docker-socket
+    hostPath:
+      path: /var/run/docker.sock
+'''
+        }
+    }
+
+    environment {
+        // CAMBIA ESTO POR TU USUARIO REAL
+        DOCKER_REGISTRY = "tu_usuario_dockerhub" 
+        IMAGE_NAME = "spring-petclinic"
+        APP_NAME = "petclinic-tfm"
+        NAMESPACE = "default" 
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+                script {
+                    echo "🔧 Iniciando Pipeline TFM (Modo Multi-Stage Docker)"
+                }
+            }
+        }
+
+        // NOTA: Eliminamos la etapa 'Maven Build' porque tu Dockerfile ya compila el código.
+        
+        stage('Docker Build & Push') {
+            steps {
+                container('docker') {
+                    dir('local-deploy/petclinic') {
+                        script {
+                            echo "🐳 Construyendo imagen (Compilación incluida en Dockerfile)..."
+                            
+                            // Login a DockerHub
+                            withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', passwordVariable: 'DOCKER_PASS', usernameVariable: 'DOCKER_USER')]) {
+                                sh "docker login -u $DOCKER_USER -p $DOCKER_PASS"
+                            }
+                            
+                            // El build tardará un poco más la primera vez porque Maven corre dentro del build de Docker
+                            sh "docker build -t ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest ."
+                            sh "docker push ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest"
+                            
+                            // Captura del DIGEST para Helm (Requisito de tus compañeros)
+                            env.IMAGE_DIGEST = sh(script: "docker inspect --format='{{index .RepoDigests 0}}' ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest | cut -d'@' -f2", returnStdout: true).trim()
+                            echo "🔒 Digest capturado: ${env.IMAGE_DIGEST}"
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Deploy Helm') {
+            steps {
+                container('helm') {
+                    script {
+                        echo "🚀 Desplegando en Kubernetes..."
+                        // Inyectamos el Digest capturado al Chart de tus compañeros
+                        sh """
+                        helm upgrade --install ${APP_NAME} ./deploy/apps/helm/apps \
+                          --namespace ${NAMESPACE} \
+                          --values ./local-deploy/petclinic/values-local.yaml \
+                          --set image.digest=${env.IMAGE_DIGEST} \
+                          --set image.repository=${DOCKER_REGISTRY}/${IMAGE_NAME}
+                        """
+                    }
+                }
+            }
+        }
+    }
+}
