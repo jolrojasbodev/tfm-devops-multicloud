@@ -1,5 +1,6 @@
-# 1. IDENTIDAD (ServiceAccount)
-# Creamos un usuario específico para Jenkins dentro de K8s
+# Configuración de servicios de orquestación para Jenkins en Kubernetes
+
+# Definición de identidad para el controlador de Jenkins
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -7,9 +8,8 @@ metadata:
   namespace: jenkins
 
 ---
-# 2. PERMISOS (RBAC)
-# Le damos permisos de ADMINISTRADOR del cluster a esa cuenta.
-# Necesario para que Jenkins pueda ejecutar 'helm install' en cualquier namespace.
+# Configuración de RBAC (Role-Based Access Control)
+# Asignación de privilegios 'cluster-admin' para gestión de recursos y despliegues Helm
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -24,7 +24,7 @@ subjects:
   namespace: jenkins
 
 ---
-# 3. LA APLICACIÓN (Deployment)
+# Controlador de despliegue para la instancia de Jenkins
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -40,11 +40,9 @@ spec:
       labels:
         app: jenkins
     spec:
-      serviceAccountName: jenkins-admin # <--- VINCULAMOS LA CUENTA ADMIN
+      serviceAccountName: jenkins-admin
       
-      # SEGURIDAD (Truco TFM)
-      # Ejecutamos como root (0) y grupo root (0) para asegurar acceso al socket de Docker
-      # que montaremos desde el host (la VM Ubuntu).
+      # Configuración de contexto de seguridad para acceso al motor de contenedores del host
       securityContext:
         fsGroup: 0 
         runAsUser: 0
@@ -56,24 +54,24 @@ spec:
         - containerPort: 8080
         - containerPort: 50000
         
-        # VOLUMENES (Discos)
+        # Mapeo de volúmenes para persistencia y socket de Docker
         volumeMounts:
         - name: jenkins-home
           mountPath: /var/jenkins_home
-        - name: docker-socket         # <--- MONTAMOS EL SOCKET
+        - name: docker-socket
           mountPath: /var/run/docker.sock
       
       volumes:
       - name: jenkins-home
         persistentVolumeClaim:
           claimName: jenkins-pvc
-      - name: docker-socket           # <--- CONECTAMOS AL HOST
+      - name: docker-socket
         hostPath:
           path: /var/run/docker.sock
           type: Socket
 
 ---
-# 4. ACCESO DE RED (Service)
+# Definición de servicios de red para acceso externo y comunicación de agentes
 apiVersion: v1
 kind: Service
 metadata:
@@ -87,7 +85,7 @@ spec:
   - name: http
     port: 8080
     targetPort: 8080
-    nodePort: 30000      # Acceso web: http://IP-VM:30000
+    nodePort: 30000      # Punto de entrada para la interfaz web (HTTP)
   - name: agent
     port: 50000
-    targetPort: 50000
+    targetPort: 50000    # Puerto de comunicación para agentes JNLP
