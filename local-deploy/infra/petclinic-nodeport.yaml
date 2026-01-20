@@ -1,0 +1,16 @@
+# Configuración de exposición externa mediante puerto fijo de host
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: petclinic-external-access
+  namespace: default
+spec:
+  type: NodePort
+  # Selector vinculado a las etiquetas generadas por el Helm Release
+  selector:
+    app.kubernetes.io/instance: petclinic-tfm
+  ports:
+  - port: 8080
+    targetPort: 8080
+    nodePort: 30080  # Punto de entrada estático para la VM
