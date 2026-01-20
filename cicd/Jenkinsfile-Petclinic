@@ -1,7 +1,7 @@
 pipeline {
     agent {
         kubernetes {
-            // AÑADIDO: Contenedor 'kubectl' para aplicar infraestructura previa
+            // FIX v6: Unificamos herramientas en 'deployer' para evitar errores de conexión (exit code -2)
             yaml '''
 apiVersion: v1
 kind: Pod
@@ -19,12 +19,9 @@ spec:
     volumeMounts:
     - name: docker-socket
       mountPath: /var/run/docker.sock
-  - name: helm
-    image: alpine/helm:3.12.3
-    command: ['cat']
-    tty: true
-  - name: kubectl
-    image: bitnami/kubectl:latest
+  # Usamos una imagen combinada que trae Helm y Kubectl y es más estable para Jenkins
+  - name: deployer
+    image: dtzar/helm-kubectl:3.13
     command: ['cat']
     tty: true
   volumes:
@@ -47,7 +44,7 @@ spec:
             steps {
                 checkout scm
                 script {
-                    echo "🔧 Iniciando Pipeline TFM (Modo Full Automático) v5"
+                    echo "🔧 Iniciando Pipeline TFM (Modo Full Automático) v6"
                 }
             }
         }
@@ -72,19 +69,15 @@ spec:
 
         stage('Deploy Infra & App') {
             steps {
-                // PASO 1: Infraestructura (Base de Datos)
-                container('kubectl') {
+                // Usamos el contenedor unificado 'deployer' para todo
+                container('deployer') {
                     script {
                         echo "🏗️ Asegurando infraestructura base (MySQL + Secretos)..."
-                        // Aplica el archivo de MySQL antes de desplegar la app
+                        // Paso 1: Aplicar infraestructura
                         sh "kubectl apply -f local-deploy/infra/mysql-local-setup.yaml"
-                    }
-                }
-
-                // PASO 2: Aplicación (Helm)
-                container('helm') {
-                    script {
+                        
                         echo "🚀 Desplegando Aplicación en Kubernetes..."
+                        // Paso 2: Desplegar aplicación con Helm
                         sh """
                         helm upgrade --install ${APP_NAME} ./deploy/apps/helm/apps \
                           --namespace ${NAMESPACE} \
