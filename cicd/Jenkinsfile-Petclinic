@@ -1,7 +1,7 @@
 pipeline {
     agent {
         kubernetes {
-            // Simplificamos el Pod: Ya no necesitamos el contenedor de Maven
+            // Usamos un Pod con 2 contenedores: Docker (para empaquetar) y Helm (para desplegar)
             yaml '''
 apiVersion: v1
 kind: Pod
@@ -15,7 +15,7 @@ spec:
     command: ['cat']
     tty: true
     securityContext:
-      privileged: true # Necesario para DinD
+      privileged: true # Necesario para DinD o montar sockets
     volumeMounts:
     - name: docker-socket
       mountPath: /var/run/docker.sock
@@ -32,8 +32,8 @@ spec:
     }
 
     environment {
-        // CAMBIA ESTO POR TU USUARIO REAL
-        DOCKER_REGISTRY = "tu_usuario_dockerhub" 
+        // ACTUALIZADO CON TU USUARIO
+        DOCKER_REGISTRY = "jolrojasbodev" 
         IMAGE_NAME = "spring-petclinic"
         APP_NAME = "petclinic-tfm"
         NAMESPACE = "default" 
@@ -44,12 +44,10 @@ spec:
             steps {
                 checkout scm
                 script {
-                    echo "🔧 Iniciando Pipeline TFM (Modo Multi-Stage Docker)"
+                    echo "🔧 Iniciando Pipeline TFM (Modo Multi-Stage Docker) v2"
                 }
             }
         }
-
-        // NOTA: Eliminamos la etapa 'Maven Build' porque tu Dockerfile ya compila el código.
         
         stage('Docker Build & Push') {
             steps {
@@ -58,16 +56,15 @@ spec:
                         script {
                             echo "🐳 Construyendo imagen (Compilación incluida en Dockerfile)..."
                             
-                            // Login a DockerHub
+                            // CORRECCIÓN DE SEGURIDAD: --password-stdin (v2 fix)
                             withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', passwordVariable: 'DOCKER_PASS', usernameVariable: 'DOCKER_USER')]) {
-                                sh "docker login -u $DOCKER_USER -p $DOCKER_PASS"
+                                sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
                             }
                             
-                            // El build tardará un poco más la primera vez porque Maven corre dentro del build de Docker
                             sh "docker build -t ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest ."
                             sh "docker push ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest"
                             
-                            // Captura del DIGEST para Helm (Requisito de tus compañeros)
+                            // Captura del Digest
                             env.IMAGE_DIGEST = sh(script: "docker inspect --format='{{index .RepoDigests 0}}' ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest | cut -d'@' -f2", returnStdout: true).trim()
                             echo "🔒 Digest capturado: ${env.IMAGE_DIGEST}"
                         }
@@ -81,7 +78,6 @@ spec:
                 container('helm') {
                     script {
                         echo "🚀 Desplegando en Kubernetes..."
-                        // Inyectamos el Digest capturado al Chart de tus compañeros
                         sh """
                         helm upgrade --install ${APP_NAME} ./deploy/apps/helm/apps \
                           --namespace ${NAMESPACE} \
