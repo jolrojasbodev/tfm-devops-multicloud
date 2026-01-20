@@ -44,7 +44,7 @@ spec:
             steps {
                 checkout scm
                 script {
-                    echo "🔧 Iniciando Pipeline TFM (Modo Full Automático) v6"
+                    echo "🔧 Iniciando Pipeline TFM (Modo Full Automático) v7"
                 }
             }
         }
@@ -73,7 +73,7 @@ spec:
                 container('deployer') {
                     script {
                         echo "🏗️ Asegurando infraestructura base (MySQL + Secretos)..."
-                        // Paso 1: Aplicar infraestructura
+                        // Paso 1: Aplicar infraestructura de base de datos
                         sh "kubectl apply -f local-deploy/infra/mysql-local-setup.yaml"
                         
                         echo "🚀 Desplegando Aplicación en Kubernetes..."
@@ -86,6 +86,10 @@ spec:
                           --set image.repository=${DOCKER_REGISTRY}/${IMAGE_NAME} \
                           --set autoscaling.enabled=false
                         """
+                        
+                        echo "🌐 Exponiendo servicio en puerto fijo 30080..."
+                        // Paso 3: Aplicar servicio NodePort fijo (Parche de Infra)
+                        sh "kubectl apply -f local-deploy/infra/petclinic-nodeport.yaml"
                     }
                 }
             }
