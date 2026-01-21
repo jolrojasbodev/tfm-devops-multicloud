@@ -95,8 +95,9 @@ spec:
                         // 4. Aplicación de Reglas de Enrutamiento (Ingress)
                         sh "kubectl apply -f local-deploy/infra/strangler-ingress.yaml"
 
-                        // NOTA: Se eliminó el paso 5 (NodePort 30080) porque creaba un acceso directo solo al monolito,
-                        // impidiendo probar el enrutamiento inteligente del Ingress.
+                        // 5. LIMPIEZA DE LEGADO: Eliminar explícitamente el acceso directo (NodePort 30080)
+                        // Esto garantiza que el tráfico solo pueda entrar vía Ingress (Puerto 80)
+                        sh "kubectl delete -f local-deploy/infra/petclinic-nodeport.yaml --ignore-not-found"
                     }
                 }
             }
