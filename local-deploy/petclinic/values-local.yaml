@@ -1,0 +1,63 @@
+# Parámetros de configuración para el despliegue de Spring PetClinic
+
+# Definición de la imagen del contenedor
+image:
+  repository: "jolrojasbodev/spring-petclinic"
+  pullPolicy: IfNotPresent
+
+# Configuración del servicio interno (ClusterIP)
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+
+# Variables de entorno para la integración con la persistencia
+env:
+  - name: SPRING_PROFILES_ACTIVE
+    value: "mysql"
+  - name: SPRING_DATASOURCE_URL
+    value: "jdbc:mysql://mysql-db:3306/petclinic"
+  - name: SPRING_DATASOURCE_USERNAME
+    valueFrom:
+      secretKeyRef:
+        name: db-credentials
+        key: username
+  - name: SPRING_DATASOURCE_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: db-credentials
+        key: password
+
+# Definición de Probes de salud (Configuración optimizada para arranque de Spring Boot + JPA)
+readinessProbe:
+  enabled: true
+  path: /actuator/health/readiness
+  port: 8080
+  initialDelaySeconds: 45 
+  periodSeconds: 10
+
+livenessProbe:
+  enabled: true
+  path: /actuator/health/liveness
+  port: 8080
+  initialDelaySeconds: 80  
+  periodSeconds: 15
+
+# Gestión de recursos de cómputo
+resources:
+  requests:
+    cpu: 200m
+    memory: 512Mi
+  limits:
+    cpu: 1000m
+    memory: 1024Mi
+
+# Configuración del Ingress Controller
+ingress:
+  enabled: true
+  className: traefik
+  hosts:
+    - host: petclinic.local
+      paths:
+        - path: /
+          pathType: Prefix
