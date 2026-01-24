@@ -11,7 +11,7 @@ spec:
     command: ['cat']
     tty: true
     securityContext:
-      privileged: true 
+      privileged: true
     volumeMounts:
     - name: docker-socket
       mountPath: /var/run/docker.sock
@@ -27,11 +27,24 @@ spec:
         }
     }
 
+    parameters {
+        choice(
+            name: 'DEPLOY_MODE',
+            choices: ['simple', 'strangler'],
+            description: 'Modo de despliegue: simple (una release) o strangler (monolito + vets + ingress unificado).'
+        )
+    }
+
     environment {
-        DOCKER_REGISTRY = "jolrojasbodev" 
+        DOCKER_REGISTRY = "jolrojasbodev"
         IMAGE_NAME      = "spring-petclinic"
+
+        // Releases Helm
         APP_NAME        = "petclinic-tfm"
-        NAMESPACE       = "default" 
+        APP_NAME_MONO   = "petclinic-tfm"
+        APP_NAME_VETS   = "petclinic-vets"
+
+        NAMESPACE       = "default"
     }
 
     stages {
@@ -40,7 +53,7 @@ spec:
                 checkout scm
             }
         }
-        
+
         stage('Docker Image Build & Push') {
             steps {
                 container('docker') {
@@ -50,13 +63,16 @@ spec:
                             withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', passwordVariable: 'DOCKER_PASS', usernameVariable: 'DOCKER_USER')]) {
                                 sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
                             }
-                            
+
                             // Construcción y publicación de la imagen
                             sh "docker build -t ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest ."
                             sh "docker push ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest"
-                            
+
                             // Obtención del digest SHA256 para garantizar inmutabilidad en el despliegue
-                            env.IMAGE_DIGEST = sh(script: "docker inspect --format='{{index .RepoDigests 0}}' ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest | cut -d'@' -f2", returnStdout: true).trim()
+                            env.IMAGE_DIGEST = sh(
+                                script: "docker inspect --format='{{index .RepoDigests 0}}' ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest | cut -d'@' -f2",
+                                returnStdout: true
+                            ).trim()
                         }
                     }
                 }
@@ -67,21 +83,50 @@ spec:
             steps {
                 container('deployer') {
                     script {
-                        // Sincronización de componentes de infraestructura (Base de Datos y Secretos)
+                        // Infra común (BD/secretos)
                         sh "kubectl apply -f local-deploy/infra/mysql-local-setup.yaml"
-                        
-                        // Despliegue de aplicación mediante Helm Chart
-                        sh """
-                        helm upgrade --install ${APP_NAME} ./deploy/apps/helm/apps \
-                          --namespace ${NAMESPACE} \
-                          --values ./local-deploy/petclinic/values-local.yaml \
-                          --set image.digest=${env.IMAGE_DIGEST} \
-                          --set image.repository=${DOCKER_REGISTRY}/${IMAGE_NAME} \
-                          --set autoscaling.enabled=false
-                        """
-                        
-                        // Aplicación de configuración de red externa (Puerto Fijo)
-                        sh "kubectl apply -f local-deploy/infra/petclinic-nodeport.yaml"
+
+                        if (params.DEPLOY_MODE == 'strangler') {
+                            // 1) Monolito (core)
+                            sh """
+                            helm upgrade --install ${APP_NAME_MONO} ./deploy/apps/helm/apps \
+                              --namespace ${NAMESPACE} \
+                              --values ./local-deploy/petclinic/values-local.yaml \
+                              --set image.digest=${env.IMAGE_DIGEST} \
+                              --set image.repository=${DOCKER_REGISTRY}/${IMAGE_NAME} \
+                              --set autoscaling.enabled=false
+                            """
+
+                            // 2) Microservicio Vets (desagregado)
+                            sh """
+                            helm upgrade --install ${APP_NAME_VETS} ./deploy/apps/helm/apps \
+                              --namespace ${NAMESPACE} \
+                              --values ./local-deploy/petclinic/values-vets.yaml \
+                              --set image.digest=${env.IMAGE_DIGEST} \
+                              --set image.repository=${DOCKER_REGISTRY}/${IMAGE_NAME} \
+                              --set autoscaling.enabled=false
+                            """
+
+                            // 3) Reglas de enrutamiento (Ingress)
+                            sh "kubectl apply -f local-deploy/infra/strangler-ingress.yaml"
+
+                            // 4) Limpieza de legado (evitar acceso directo por NodePort)
+                            sh "kubectl delete -f local-deploy/infra/petclinic-nodeport.yaml --ignore-not-found"
+
+                        } else {
+                            // Despliegue simple (una release)
+                            sh """
+                            helm upgrade --install ${APP_NAME} ./deploy/apps/helm/apps \
+                              --namespace ${NAMESPACE} \
+                              --values ./local-deploy/petclinic/values-local.yaml \
+                              --set image.digest=${env.IMAGE_DIGEST} \
+                              --set image.repository=${DOCKER_REGISTRY}/${IMAGE_NAME} \
+                              --set autoscaling.enabled=false
+                            """
+
+                            // Exposición externa por NodePort (modo simple)
+                            sh "kubectl apply -f local-deploy/infra/petclinic-nodeport.yaml"
+                        }
                     }
                 }
             }

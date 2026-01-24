@@ -1,8 +1,11 @@
-# Parámetros de configuración para el despliegue local de Spring PetClinic
-# Nota: Para modo "strangler", el Ingress se gestiona externamente (strangler-ingress.yaml).
+# Configuración de despliegue para el microservicio desagregado "Vets"
+# Estrategia: Strangler Fig Pattern
 
-fullnameOverride: "petclinic-monolith"
-replicaCount: 2
+# Identificador de servicio para reglas de enrutamiento Ingress
+fullnameOverride: "petclinic-vets"
+
+# Dimensionamiento específico para el módulo de veterinarios
+replicaCount: 1
 
 image:
   repository: "jolrojasbodev/spring-petclinic"
@@ -13,10 +16,11 @@ service:
   port: 8080
   targetPort: 8080
 
-# Desactivación de Ingress del chart para evitar conflictos (especialmente en modo strangler)
+# Gestión de tráfico delegada al Ingress global
 ingress:
   enabled: false
 
+# Configuración de persistencia compartida
 env:
   - name: SPRING_PROFILES_ACTIVE
     value: "mysql"
@@ -33,6 +37,7 @@ env:
         name: db-credentials
         key: password
 
+# Configuración de estabilidad de runtime
 readinessProbe:
   enabled: true
   path: /actuator/health/readiness
