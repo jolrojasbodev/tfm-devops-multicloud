@@ -15,10 +15,10 @@ module "petclinic" {
   image_name      = var.image_name
   image_digest    = var.image_digest
   
-  # Rutas relativas a los archivos de configuración de Helm
-  chart_path        = "../../../../deploy/apps/helm/apps"
-  values_local_path = "../../../../local-deploy/petclinic/values-local.yaml"
-  values_vets_path  = "../../../../local-deploy/petclinic/values-vets.yaml"
+  # Definición de rutas relativas al directorio de ejecución del módulo raíz
+  chart_path        = "../../deploy/apps/helm/apps"
+  values_local_path = "../petclinic/values-local.yaml"
+  values_vets_path  = "../petclinic/values-vets.yaml"
 
   # Dependencia explícita para asegurar la disponibilidad de la base de datos
   depends_on = [module.database]
